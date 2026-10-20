@@ -1,0 +1,35 @@
+# data and outputs
+data/raw/
+data/processed/
+*.dcm
+*.zip
+*.tar
+*.tar.gz
+checkpoints/
+runs/
+wandb/
+mlruns/
+*.pt
+*.pth
+*.ckpt
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# secrets
+.env
+*.key
+
+# keep folder structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep

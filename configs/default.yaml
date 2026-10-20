@@ -1,0 +1,18 @@
+seed: 42
+image_size: 512
+dataset:
+  name: aptos
+  root: data/raw/aptos
+split:
+  by: patient_id        # Never split by image
+  val_fraction: 0.15
+  test_fraction: 0.15
+  check_duplicates: true
+train:
+  batch_size: 16
+  epochs: 20
+  lr: 1.0e-4
+  num_workers: 2
+output:
+  runs_dir: runs
+  reports_dir: reports
