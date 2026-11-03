@@ -22,7 +22,7 @@ from .base import FundusDataset
 
 
 class AptosDataset(FundusDataset):
-    name = "aptos"
+    name = "APTOS-2019 "
 
     def __init__(self, root: str, image_dir: str = "train_images", csv_name: str = "train.csv"):
         super().__init__(root)
