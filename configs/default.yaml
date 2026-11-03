@@ -1,8 +1,8 @@
 seed: 42
 image_size: 512
 dataset:
-  name: aptos
-  root: data/raw/aptos
+  name: APTOS-2019
+  root: data/raw/APTOS-2019
 split:
   by: patient_id        # Never split by image
   val_fraction: 0.15
