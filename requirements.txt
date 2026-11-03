@@ -3,9 +3,11 @@ pandas
 scipy
 scikit-learn
 scikit-image
+ImageHash
 opencv-python
 matplotlib
 seaborn
+plotly
 pillow
 pyyaml
 tqdm
