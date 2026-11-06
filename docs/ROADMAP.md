@@ -1,195 +1,310 @@
-# Roadmap and task board
+# Roadmap and task board (re-baselined 2026-11-02)
 
-Working rules, tickets with acceptance criteria, and where every file goes. Owner of every ticket: Arbaz. Budget: 2 hours per night. Dates assume work every night; if a ticket slips, move the next ones and write the reason in `docs/LOG.md`.
+Owner of every ticket: Arbaz. Budget: 2 hours per night. This board replaces the earlier version after a break (31 Oct to 2 Nov). Everything moves back by about one week; the last phase is shortened by one week instead of working longer hours.
+
+If the 2 hours per night are shared with other projects or study blocks, say so and the board will be re-cut. Do not try to catch up by working extra hours.
+
+## Calendar after the re-baseline
+
+| Phase | Old dates | New dates |
+|---|---|---|
+| 1 Preprocessing and baseline (Sprint 1) | 25 Oct to 7 Nov | **3 Nov to 14 Nov** |
+| 2 Training pipeline, enhancement ablation (Sprint 2) | 8 to 21 Nov | 15 to 28 Nov |
+| 3 Vessel segmentation, DRIVE (Sprint 3) | 22 Nov to 5 Dec | 29 Nov to 12 Dec |
+| 4 Biomarkers and statistics (Sprint 4) | 6 to 26 Dec | 13 Dec to 2 Jan |
+| 5 Cross-dataset study and artifact audit (Sprint 5) | 27 Dec to 10 Jan | 3 to 17 Jan |
+| 6 Packaging and write-up (Sprint 6) | 11 to 31 Jan | 18 to 31 Jan (two weeks instead of three) |
+
+Scope cuts agreed to protect the end date (do them only if you fall behind, and log it): three seeds move to Sprint 2; the contrast-variant visual comparison moves to Sprint 2; the matched-subset second model in T-08 stays exploratory.
 
 ## How a ticket is worked
 
-1. **Read** the ticket and the "learn first" list. Spend at most 30 minutes of the night on learning.
-2. **Build** in the order given. Code that will be reused goes to `src/fundus/` with a test; notebooks call it and interpret results.
-3. **Check** against "Definition of done". If a criterion fails, the ticket is not done.
-4. **Record**: `docs/LOG.md` (every day), `docs/DECISIONS.md` (only if you chose something), README status table (when a phase changes). Write decisions in your own words.
-5. **Commit** with short imperative messages, for example `Add FOV mask QA overlay`, `Add cached 256px preprocessing script`, `Fix leakage in train loader`.
+1. **Re-entry (10 min, every night):** `git status`, read the last `docs/LOG.md` entry, open the ticket.
+2. **Learn** (at most 30 min), **Build**, **Audit**, **Record**. The audit step is part of the ticket, not an extra.
+3. **Record:** `docs/LOG.md` every night. `docs/DECISIONS.md` only when you chose something. README status table when a phase changes. Write decisions in your own words.
+4. **Commit** with short imperative messages (`Add FOV mask QA overlay`).
+5. **Stop rules.** A diagnostic that has given its answer is finished. If a ticket takes more than 1.5 times its estimate, stop, log why, and ask for help. Run the simple table or plot first; build the sophisticated version only if the simple one is not enough. Reusable code goes to `src/fundus/` with a test; notebooks only call it and interpret.
+6. **Overflow rule.** If a ticket is not done at the end of its night, it continues the next night and every later ticket moves by one day. The two buffer days at the end of the sprint absorb up to two such slips.
 
-**Stop rules.** A diagnostic that already gives its answer is finished: do not add machinery. If a ticket takes more than 1.5 times its estimate, stop, write down why, and ask for help before continuing. Run the simple check first (a table or a plot), then build the sophisticated version only if the simple one is not enough.
-
-**Hardware (MacBook, Apple Silicon, 16 GB).** Use PyTorch with the `mps` device (`torch.backends.mps.is_available()`); set `PYTORCH_ENABLE_MPS_FALLBACK=1` for operations MPS does not support. Start at 256 px images and batch size 32; use `num_workers=0` or `2` (macOS starts workers by spawning processes); keep float32 first. Measure and log images per second; that number decides how many experiments you can afford.
+**Hardware (MacBook, Apple Silicon, 16 GB).** PyTorch with the `mps` device; set `PYTORCH_ENABLE_MPS_FALLBACK=1`. Start at 256 px and batch size 32; `num_workers` 0 or 2; float32 first. Measure and log images per second.
 
 ---
 
-## Sprint 1: preprocessing and baseline (30 Oct to 8 Nov)
+## Sprint 1: preprocessing and baseline (3 to 14 Nov)
 
-### T-01 Housekeeping and re-run (Fri 30 Oct, about 2 h)
+### T-01 Re-entry, housekeeping, re-run (Tue 3 Nov, 2 h; may continue on Wed)
 
-**Goal.** A clean repository whose notebooks reproduce from scratch.
+**Goal.** A clean repository whose first two notebooks reproduce from scratch and whose text matches their output.
 
-Steps
-1. Delete stale files (listed in the chat message), then run `pytest -q`.
-2. Add to `requirements.txt`: `imagehash`, `scikit-image`, `seaborn`, `tqdm`. In `pyproject.toml` set `requires-python = ">=3.10"`.
-3. Run notebook 01 with Restart kernel and Run All. First run profiles about 3,000 large images and takes several minutes.
-4. Run notebook 02 with Restart kernel and Run All.
-5. Compare the quoted numbers with your output (checklist below) and edit any sentence that differs.
-6. Write the missing interpretation sentences about the `fov_*` results (checklist items 6 and 7).
-7. Remove saved outputs that show dataset images (sample-image cell in notebook 01) unless the licence allows them; search the notebooks for `/Users/`.
-8. Replace the markdown files from the update package (compare your modified `DATASETS.md` and `LOG.md` first with `git diff`) and fill every bracketed field.
-9. Commit in four commits: library code and tests; notebooks; docs; reports.
+**Re-entry check (15 min).** For each item write done / not done in `docs/LOG.md`: stale files deleted; `requirements.txt` and `pyproject.toml` updated; notebook 01 re-run with `fov_*` columns present; notebook 02 re-run; markdown files replaced; sample-image output cleared; commits made.
 
-Checklist of things left for you
-1. Metadata CSV header contains `fov_area_fraction` (otherwise notebook 01 did not rebuild it).
-2. Notebook 01: 17 resolutions; 6 are at least 90% one grade covering 1,369 images; PCA: resolution explains about 0.79 of PC1 and 0.54 of PC2, grade 0.30 and 0.12.
-3. Notebook 02: best CV QWK close to 0.70 and validation close to 0.69; lookup baseline about 0.59.
-4. Notebook 02, section 2: note how many duplicate groups span train and validation. If more than zero, read the clean-validation line.
-5. `scripts/create_aptos_split.py`: does it group near-duplicates across **all** images, including test, before assigning partitions? If not, note it in DECISIONS (D-003) and fix it before any test evaluation.
-6. Notebook 01, section 6: what do the FOV correlations with width and border show? Write 2 to 3 sentences.
-7. Notebook 02, section 5: is the `FOV colour + sharpness only` QWK much lower than the whole-image content group, or similar? Write which of the two cases happened and what it means.
-8. `tests/test_image_metadata.py` is no longer visible in your tree; if you removed it, fine (the new tests cover the module). There is also no test for `AptosDataset`; add one when T-05 uses it.
-9. Ask your clinical collaborator: which clinics/cameras use which image sizes; whether the 2588 x 1958 images with the lowest blue-channel values look different (show him 6 images from each end of the range).
-10. Fill `docs/DATASETS.md`: source link of the pre-split upload, licence text, download date.
-11. Do **not** download the 18.5 GB 2015 + 2019 dataset yet.
+**Tasks** (skip those already done)
+1. Delete stale files: `.pytest_cache/`, `data/processed/aptos_metadata_features_development.csv`, `data/processed/aptos_development_image_metadata.csv`, all generated files in `reports/` and `reports/figures/` except `README.md` and `.gitkeep`.
+2. `requirements.txt`: add `imagehash`, `scikit-image`, `seaborn`, `tqdm`. `pyproject.toml`: `requires-python = ">=3.10"`. Run `pytest -q`.
+3. Notebook 01: Restart kernel and Run All (several minutes on first run). Notebook 02: same.
+4. Write the missing interpretation sentences: notebook 01 section 6 (what the `fov_*` correlations with width and border show) and notebook 02 section 5 (is `FOV colour + sharpness only` much lower than whole-image content, or similar?).
+5. Compare every number quoted in the text with your output; correct the text.
+6. Fill `docs/DATASETS.md` (source link of your pre-split upload, licence, download date) and rewrite the DECISIONS "Why" cells in your own words.
+7. Four commits: code and tests; notebooks; docs; reports.
 
-Definition of done: `pytest` green; both notebooks run top to bottom without errors; numbers in text match output; no personal paths; docs updated; four commits pushed.
+**Notebook work.** No new notebook. Edit notebooks 01 and 02 only.
 
-### T-02 Preprocessing functions and FOV mask QA (Sat 31 Oct, about 2 h)
+**Audit**
+- Does `scripts/create_aptos_split.py` group near-duplicates across all images, including test, before assigning partitions? Write the answer in DECISIONS (D-003).
+- Notebooks contain no `/Users/` path and no dataset images in saved outputs (unless the licence allows them).
+- The sealed test partition is not read anywhere (search the notebooks for `test`).
+- Duplicate groups spanning train and validation: record the number.
 
-**Learn first (30 min).** How fundus preprocessing works: cropping the black border, padding to a square so the circle is not stretched, interpolation and anti-aliasing when shrinking large images (INTER_AREA), and the idea behind local-average subtraction (a Gaussian-blurred copy is subtracted to remove illumination differences; associated with the winning solution of the 2015 Kaggle DR competition: search it). Read one short explanation of CLAHE.
+**Expected result.** Numbers close to: 17 resolutions; 6 of them at least 90% one grade covering 1,369 images; metadata CV QWK about 0.70, validation about 0.69, resolution lookup about 0.59.
 
-**Build.**
-1. `src/fundus/preprocessing.py` with `crop_to_fov(rgb, black_threshold=10)`, `pad_to_square(rgb)`, `resize_square(rgb, size)`, and `preprocess_basic(rgb, size)` (crop, pad, resize). Reuse `estimate_fov_mask` from `features/image_metadata.py`. Contrast variants (`local_average_subtraction`, `clahe_l_channel`) as separate functions, not applied by default.
-2. `tests/test_preprocessing.py`: output shape is `(size, size, 3)`; a synthetic off-centre disc ends up centred; padding is black; the function does not change a square image that is already cropped.
-3. QA: in notebook 03, section 2, overlay the FOV mask outline on one image per resolution (17 images) plus the 6 images with the smallest and 6 with the largest `fov_area_fraction`. Look at every one.
+**Update docs.** LOG (entry for 2 Nov: write only "no work, break"; 3 Nov: ticket results), DECISIONS (D-003 audit answer; D-006 status after the FOV result), DATASETS.
 
-**Expect.** Masks follow the retinal circle on most images. Possible failures: very dark images (mask too small), images where the retina touches the frame edge. If masks fail, adjust the threshold or the morphology and note it in DECISIONS.
+**Done when.** `pytest` green; both notebooks run top to bottom; text matches output; four commits pushed.
 
-**Definition of done:** functions tested; QA grid reviewed; list of failing images (if any) written in LOG.
+### T-02 Preprocessing functions and FOV mask QA (Thu 5 Nov, carried over from Wed 4 Nov, 2 h)
 
-### T-03 Notebook 03: preprocessing design and cache (Sun 1 Nov, about 2 h)
+**Goal.** Tested functions that turn any APTOS image into a fixed-size square, and proof that retina detection works on every resolution family.
 
-Notebook `03_preprocessing_design.ipynb`, headings:
+**Learn first.** Fundus preprocessing basics: cropping the black border, padding (not stretching) to a square, interpolation and anti-aliasing when shrinking (area interpolation), local-average subtraction (subtract a Gaussian-blurred copy; associated with a winning 2015 Kaggle DR solution, search for it), CLAHE.
+
+**Tasks**
+1. Create `src/fundus/preprocessing.py`: `crop_to_fov`, `pad_to_square`, `resize_square`, `preprocess_basic(rgb, size)`; separate `local_average_subtraction` and `clahe_l_channel` that are **not** applied by default. Reuse `estimate_fov_mask`.
+2. Create `tests/test_preprocessing.py`: output shape `(size, size, 3)`; an off-centre synthetic disc ends up centred; padding is black; an already-square cropped image stays unchanged.
+3. Start `notebooks/03_preprocessing_design.ipynb` (sections 1 to 3 below) and produce the mask overlay grid.
+
+**Notebook 03, first sections**
 1. Purpose, inputs, outputs, rules
 2. Setup
-3. FOV mask QA (from T-02)
-4. Basic preprocessing on one image per resolution (before and after)
-5. Contrast variants side by side for one image per grade (raw, local-average subtraction, CLAHE). Visual comparison only; no variant is chosen by looks.
-6. Cost: seconds per image and disk size of the cache at 256, 384 and 512 px
-7. **Does preprocessing remove the source cue?** Compute fixed-size `fov_*` colour statistics on the cached 256 px images and repeat the metadata shortcut CV from notebook 02. Geometry features no longer exist after resizing; the question is how much of the signal survives in colour and sharpness.
-8. Decision: baseline preprocessing = `preprocess_basic` at 256 px, ImageNet normalisation (see D-009)
+3. FOV mask QA: outline overlay for one image per resolution (17), plus the 6 images with the smallest and the 6 with the largest `fov_area_fraction`
 
-Also create `scripts/cache_preprocessed.py` (reads `configs/splits/aptos_v1.csv`, writes `data/processed/aptos_256px_basic/<id>.png` for train and val only; the test partition is **not** cached yet).
+**Audit**
+- Look at every one of the 29 overlay images. List failures (mask too small, retina touching the frame, very dark images) with image ID.
+- Preprocessing is deterministic: same input gives identical output.
+- Aspect ratio is preserved (no stretching): check on the widest and the squarest image.
+- Output values are uint8 in [0, 255].
+- `local_average_subtraction` uses the retina mask (flat retina stays 128 up to the edge, border stays 0) and `clahe_l_channel` ends with `COLOR_LAB2RGB` (both tested).
+- Padding re-creates black bars whose size depends on the camera crop (for example 23% of the height for a 1562 x 1199 crop). Record this per resolution group; it is a possible residual source cue (see `docs/PREPROCESSING.md`).
+- Every claim in `docs/PREPROCESSING.md` has a number or a reproducible demonstration.
+- Only one preprocessing module exists in `src/fundus/`.
 
-**Expect.** The cache for about 3,000 images at 256 px is small (hundreds of MB at most) and builds in minutes. The metadata QWK after preprocessing is lower than before but probably not zero; write down the number whatever it is.
+**Expected result.** Masks follow the retinal circle on most images. A few dark or off-frame images may fail; decide per case whether to adjust the threshold or accept.
 
-Definition of done: cache exists and is git-ignored; section 7 has a number; D-009 filled.
+**Update docs.** LOG (failure list); DECISIONS (any threshold change); README status table row 1b: in progress.
 
-### T-04 Notebook 04, part A: CNN fundamentals by hand (Mon 2 Nov, about 2 h)
+**Done when.** Functions and tests pass; QA grid reviewed; failure list written.
 
-**Learn first (45 min).** Stanford CS231n notes on convolutional networks; or the CNN chapters of *Dive into Deep Learning* (d2l.ai). Concepts: convolution as a sliding dot product, output size `floor((n + 2p - k) / s) + 1`, number of parameters of a conv layer, receptive field, pooling, why a global average pool replaces a huge fully connected layer, cross-entropy and what the loss should be at initialisation.
+### T-03 Notebook 03 complete and the 256 px cache (Fri 6 Nov, 2 h)
 
-Notebook `04_cnn_fundamentals.ipynb`, headings:
-1. Purpose and what you should be able to explain afterwards
-2. Output-size and parameter-count formulas, checked against PyTorch on 5 layers you choose
-3. Convolution by hand on a 5 x 5 example, then a NumPy `conv2d`, compared with `torch.nn.functional.conv2d`
-4. Receptive field of a stack of layers (compute by hand, then in code)
-5. A `SmallCNN` (4 conv blocks, global average pool, linear layer): print every tensor shape and the parameter count
+**Goal.** One cached, identically preprocessed copy of all train and validation images, and a measured answer to "does preprocessing remove the source cue?"
 
-**Expect.** NumPy and PyTorch outputs agree to numerical precision. If not, the bug is in your indexing.
+**Tasks**
+1. Create `scripts/cache_preprocessed.py`: reads `configs/splits/aptos_v1.csv`, writes `data/processed/aptos_256px_basic/<id>.png` for **train and val only**. The test partition is not cached or opened.
+2. Finish notebook 03 (sections 4 to 8 below).
+3. Re-profile the cached 256 px images with `build_image_metadata(include_fov=True)` and repeat the shortcut CV from notebook 02 on `fov_*` colour and sharpness features.
 
-Definition of done: you can explain, without looking, why a 3 x 3 conv with 32 filters on a 3-channel input has 896 parameters.
+**Notebook 03, remaining sections**
+4. Basic preprocessing before and after, one image per resolution; plus the reproducible resize test (stripe pattern with nearest, linear, cubic and area interpolation)
+5. Cost: seconds per image; disk size at 256, 384 and 512 px (measure on 50 images and extrapolate)
+6. Does preprocessing remove the source cue? Grouped-CV QWK before and after, same locked model; also the dark-pixel fraction after cropping and padding per resolution group (padding bars are a possible residual cue)
+7. Decision: baseline preprocessing = `preprocess_basic` at 256 px with ImageNet normalisation; contrast variants are compared in Sprint 2 under a leak-free protocol
+8. Summary
 
-### T-05 Dataset class, model code, overfit test (Tue 3 Nov, about 2 h)
+**Audit**
+- Cache holds exactly 2,963 images, matching the train and val IDs in the manifest; no test ID present.
+- Every cached file opens and has shape 256 x 256 x 3.
+- Run time per image is logged.
+- The before/after QWK uses the same CV folds and model as notebook 02.
 
-Build
-1. `src/fundus/datasets/torch_dataset.py`: `FundusTorchDataset(manifest_csv, cache_dir, split, transform)` returning `(image_tensor, grade)`. Reads only the requested split; asserts that the split name is `train` or `val` unless `allow_test=True`.
+**Expected result.** Cache builds in minutes and is small. Metadata QWK after preprocessing is lower than before but probably not zero. Whatever the number is, write it down.
+
+**Update docs.** LOG (numbers); DECISIONS (D-009 to Accepted if you agree); `data/README.md` already describes the cache folder.
+
+**Done when.** Cache exists and is git-ignored; section 6 contains a number; D-009 decided.
+
+### T-04 Notebook 04, part A: CNN fundamentals by hand (Sat 7 Nov, 2 h)
+
+**Goal.** Understand shapes, parameter counts and receptive fields well enough to debug a CNN.
+
+**Learn first (45 min).** Stanford CS231n notes on convolutional networks, or the CNN chapters of *Dive into Deep Learning* (d2l.ai). Convolution as a sliding dot product; output size `floor((n + 2p - k) / s) + 1`; parameters of a conv layer; receptive field; pooling; global average pooling; expected loss at initialisation for 5 classes (`ln 5`).
+
+**Notebook `04_cnn_fundamentals.ipynb`, part A**
+1. Purpose: what you should be able to explain afterwards
+2. Setup
+3. Output-size and parameter-count formulas, checked against PyTorch for 5 layers you choose
+4. Convolution by hand on a 5 x 5 example; then a NumPy `conv2d` compared with `torch.nn.functional.conv2d`
+5. Receptive field of a stack of layers (by hand, then in code)
+6. `SmallCNN`: 4 conv blocks, global average pool, linear layer; print every tensor shape and the parameter count
+
+**Audit**
+- NumPy and PyTorch outputs agree to numerical precision (`np.allclose`).
+- Hand-computed parameter counts equal PyTorch's counts.
+
+**Expected result.** Everything agrees. If not, the mistake is in your indexing or your formula.
+
+**Update docs.** LOG ("what I understood / what is still unclear" in your words).
+
+**Done when.** You can explain, without looking, why a 3 x 3 convolution with 32 filters on a 3-channel input has 896 parameters.
+
+### T-05 Dataset class, model code and the overfit test (Sun 8 Nov, 2 h)
+
+**Goal.** A PyTorch data pipeline that cannot touch the test partition, and a model that can learn.
+
+**Tasks**
+1. `src/fundus/datasets/torch_dataset.py`: `FundusTorchDataset(manifest_csv, cache_dir, split, transform)` returns `(image_tensor, grade)`. It asserts `split` is `train` or `val` unless `allow_test=True`.
 2. `src/fundus/models/cnn.py`: `SmallCNN` and `build_resnet(name="resnet18", num_classes=5, pretrained=True)`.
-3. `tests/test_torch_dataset.py`: shapes, dtypes, no test images when `split="train"`.
-4. Notebook 04, part B: **overfit-one-batch test**: train on 32 images until the loss is close to zero.
+3. `tests/test_torch_dataset.py`: shapes, dtypes, labels in 0..4, no test IDs when `split="train"`, train and val IDs disjoint.
+4. Notebook 04, part B: overfit-one-batch test.
 
-**Expect.** Initial loss close to `ln(5) = 1.61`. The model reaches about 100% training accuracy on the 32 images within a few hundred steps. If it cannot, there is a bug in the labels, the loss, the learning rate, or the data loader; fix this before anything else.
+**Notebook 04, part B**
+7. Data loader sanity: show 8 images with labels; print batch shapes and dtypes
+8. Initial loss check (should be near 1.61)
+9. Overfit 32 images until the loss is close to zero; plot the loss
 
-### T-06 Training loop and a first small run (Wed 4 Nov, about 2 h)
+**Audit**
+- Dataset length equals the manifest count for each split.
+- Transforms with randomness (flips, rotations) apply to train only; validation uses the same preprocessing without augmentation.
+- Overfit test passes. If it does not, fix labels, loss, learning rate or loader before anything else.
 
-Build
-1. `src/fundus/training.py`: `train_one_epoch`, `evaluate`, device selection (`mps` > `cuda` > `cpu`), seed setting, saving predictions (image ID, true grade, predicted grade, class probabilities) to CSV.
-2. Notebook 04, part C: train `SmallCNN` for a few epochs on a 512-image subset at 128 px; plot loss and QWK per epoch; record images per second on your machine.
+**Expected result.** Initial loss close to 1.61; about 100% training accuracy on the 32 images within a few hundred steps.
 
-**Expect.** Loss decreases, validation QWK is clearly above 0, and well below the metadata baseline (0.69). A small CNN from scratch on a small subset is not supposed to be good. The goal is a trustworthy pipeline.
+**Update docs.** LOG; DECISIONS (augmentations chosen for the baseline: flips and rotations only, and why).
 
-### T-07 Notebook 05: transfer-learning baseline (Thu 5 and Fri 6 Nov, about 4 h)
+**Done when.** Tests pass; overfit test passes.
 
-**Learn first (30 min).** PyTorch tutorial "Transfer Learning for Computer Vision"; why ImageNet weights help; freezing versus fine-tuning; class-weighted loss versus weighted sampling.
+### T-06 Training loop and a first small run (Mon 9 Nov, 2 h)
 
-Notebook `05_baseline_transfer_learning.ipynb`, headings:
+**Goal.** A reusable training and evaluation loop whose metrics are comparable with notebook 02.
+
+**Tasks**
+1. `src/fundus/training.py`: `train_one_epoch`, `evaluate`, device selection (`mps`, then `cuda`, then `cpu`), `set_seed`, and saving predictions (image ID, true grade, predicted grade, class probabilities) to CSV.
+2. Use `shortcut_metrics` from `fundus.features.shortcut` (rename later if you like) so that QWK, macro-F1 and balanced accuracy are computed exactly as before.
+3. Notebook 04, part C: train `SmallCNN` for a few epochs on a 512-image subset at 128 px; plot loss and QWK per epoch; log images per second.
+
+**Notebook 04, part C**
+10. Training on a small subset
+11. Learning curves
+12. Throughput on this machine (images per second) and what it implies for the experiment budget
+13. Summary: what part A to C taught me
+
+**Audit**
+- Two runs with the same seed give nearly identical losses. Note any non-determinism on MPS.
+- Validation metrics come from the same function as notebook 02.
+- Only train and val data are loaded.
+
+**Expected result.** Loss decreases; validation QWK clearly above 0 and well below the metadata baseline (0.69). A small CNN on a small subset is not supposed to be good; the goal is a pipeline you can trust.
+
+**Update docs.** LOG (throughput number).
+
+**Done when.** Loop works; learning curves look sane; throughput logged.
+
+### T-07 Notebook 05: transfer-learning baseline (Tue 10 and Wed 11 Nov, 4 h)
+
+**Goal.** The first honest CNN number on the frozen split.
+
+**Learn first (30 min).** PyTorch tutorial "Transfer Learning for Computer Vision"; freezing versus fine-tuning; class-weighted loss versus weighted sampling.
+
+**Tasks**
+1. `configs/baseline_resnet18.yaml`: size 256, batch 32, learning rates, epochs, seed.
+2. Notebook `05_baseline_transfer_learning.ipynb`.
+3. Save `reports/aptos_baseline_resnet18_summary.json` and `reports/preds/aptos_resnet18_val_predictions.csv`.
+
+**Notebook 05 headings**
 1. Purpose, inputs, outputs, rules (test sealed; validation used for epoch selection only)
-2. Setup and configuration (`configs/baseline_resnet18.yaml`: size 256, batch 32, learning rates, epochs, seed)
-3. Data loaders: cached 256 px images, flips and rotations only, ImageNet normalisation
-4. Model: ResNet18 with ImageNet weights, new 5-class head
+2. Setup and configuration
+3. Data loaders (cached 256 px, flips and rotations, ImageNet normalisation)
+4. Model: ResNet18, ImageNet weights, new 5-class head
 5. Training: 2 epochs with the backbone frozen, then fine-tune everything with a lower learning rate; class-weighted cross-entropy; keep the epoch with the best validation QWK
 6. Evaluation: QWK, macro-F1, balanced accuracy, per-grade recall, confusion matrix
-7. Comparison with the metadata-only references: validation QWK 0.692 (13 features) and 0.594 (resolution lookup)
-8. Save `reports/aptos_baseline_resnet18_summary.json` and `reports/preds/aptos_resnet18_val_predictions.csv`
-9. Observations and decisions
+7. Comparison with the metadata references (validation QWK 0.692 for 13 features; 0.594 for the resolution lookup)
+8. Observations and decisions
 
-**Expect.** The CNN should beat the metadata baseline. If it does not, suspect a pipeline bug. If the random-split QWK is very high (around 0.9 or more), do not celebrate: go to T-08 and check how much comes from the source. Run 3 seeds if time allows and report mean and spread. Log images per second and total training time.
+**Audit**
+- State clearly that validation is used to pick the epoch, so the validation score is mildly optimistic. The unbiased number comes later from cross-validation or the test split.
+- Prediction file IDs equal the validation IDs in the manifest.
+- Record training time and images per second.
+- Single seed in Sprint 1.
 
-### T-08 Notebook 06: per-source evaluation (Sat 7 Nov, about 2 h)
+**Expected result.** The CNN beats the metadata baseline. If it does not, suspect a pipeline bug. If the random-split QWK is very high (around 0.9 or more), do not celebrate; T-08 shows how much comes from the source.
 
-Notebook `06_per_source_evaluation.ipynb`, headings:
-1. Purpose: how much of the CNN score survives when the source is controlled
+**Update docs.** LOG; README results table (new row "ResNet18, random split"); DECISIONS (loss and sampling choice).
+
+**Done when.** Summary JSON and predictions file saved; numbers in text match.
+
+### T-08 Notebook 06: per-source evaluation (Thu 12 Nov, 2 h)
+
+**Goal.** Find out how much of the CNN score survives when the source is controlled.
+
+**Notebook `06_per_source_evaluation.ipynb` headings**
+1. Purpose
 2. Load validation predictions from T-07
-3. Metrics per resolution group (accuracy and confusion matrix; QWK is undefined or degenerate inside a source that has only one grade, so say so)
-4. The source-matched subset (2588 x 1958 and 2416 x 1736): validation QWK of the model from T-07 on this subset versus on all validation images
-5. Train a second model on the source-matched training images only; compare on the same matched validation images
-6. Compare both with the metadata-only model inside the matched sources (notebook 02, section 6)
-7. Conclusions: the gap, and what it says about the shortcut
+3. Metrics per resolution group (accuracy and confusion; QWK is degenerate inside a single-grade source, say so)
+4. Source-matched subset (2588 x 1958 and 2416 x 1736): QWK of the T-07 model on matched validation images versus all validation images, with bootstrap 95% intervals over images
+5. Exploratory: train a second model on matched training images only; compare on the same matched validation images
+6. Comparison with the metadata-only model inside the matched sources (notebook 02, section 6)
+7. Conclusions: the gap, and what it means for how results are reported
 
-**Expect.** The matched-subset score is lower than the all-data score; the size of the gap is the finding. With only 960 images in the matched sources, treat the second model as exploratory and report uncertainty (bootstrap confidence interval over validation images).
+**Audit**
+- Counts per group add up to the full validation set.
+- The same hyperparameters are used for the matched-only model; note it is exploratory (about 960 images in the matched sources in total).
+- Bootstrap uses at least 1,000 resamples and a fixed seed.
 
-### T-09 Sprint review (Sun 8 Nov, about 2 h)
+**Expected result.** The matched-subset score is lower than the all-data score; the size of the gap is the finding. Report uncertainty.
 
-1. Update the README status table and the results table (random split, per source, matched subset, metadata baseline).
-2. Write `docs/SPRINT1_SUMMARY.md` (one page for your clinical collaborator: what was done, what was found, what you need from him).
-3. Complete LOG and DECISIONS (D-007, D-009 to Accepted or Rejected, with reasons).
-4. Tag the repository `v0.1-baseline` and push.
+**Update docs.** README results table; DECISIONS D-007 to Accepted or Rejected with the evidence; LOG.
+
+**Done when.** Gap and intervals reported in the notebook and the README.
+
+### T-09 Sprint review (Fri 13 Nov, 2 h)
+
+**Tasks**
+1. Update the README status table and results table (random split, per source, matched subset, metadata baselines).
+2. Fill `docs/SPRINT1_SUMMARY.md` (one page for your clinical collaborator).
+3. Complete LOG and DECISIONS (D-007, D-009 decided).
+4. Run the audit checklist in `docs/AUDIT_CHECKLIST.md`, section D.
+5. Tag `v0.1-baseline` and push.
+
+**Done when.** README numbers equal the JSON files; tag pushed.
+
+### Buffer (Sat 14 Nov; the other buffer day was used on 5 Nov)
+
+Overflow from earlier tickets; meeting with your clinical collaborator using `docs/QUESTIONS_FOR_CLINICIAN.md` and `docs/SPRINT1_SUMMARY.md`; repository hygiene. If nothing overflowed, start T-10 early.
 
 ---
 
-## Sprint 2: training pipeline and the enhancement question (9 to 22 Nov)
+## Sprint 2 outline (15 to 28 Nov)
 
 | Ticket | What | Deliverable |
 |---|---|---|
-| T-10 | Write the analysis plan **before** running anything: question (does CLAHE or local-contrast enhancement help grading?), variants (raw, local-average subtraction, CLAHE), metric (QWK), seeds, splits, comparison rule | `docs/ANALYSIS_PLAN_enhancement.md` |
-| T-11 | Config-driven training script with experiment logging and saved predictions | `scripts/train.py`, `configs/*.yaml` |
-| T-12 | Imbalance and augmentation study (class weights versus sampler; flips, rotations, brightness jitter), applied only after splitting | notebook `07_training_choices.ipynb` |
-| T-13 | Enhancement ablation: 3 variants x 3 seeds, grouped folds, confidence intervals, per-source results | notebook `08_enhancement_ablation.ipynb` |
-| T-14 | Sprint review, README and docs update | `docs/SPRINT2_SUMMARY.md` |
-
-Afterwards, per the master plan: vessel segmentation on DRIVE (Phase 3), biomarkers and statistics (Phase 4), cross-dataset study with the 2015 data (Phase 5), packaging (Phase 6).
-
----
+| T-10 | Write the analysis plan **before** running anything: question (does CLAHE or local-contrast enhancement help grading?), variants, metric, seeds, splits, comparison rule | `docs/ANALYSIS_PLAN_enhancement.md` |
+| T-11 | Config-driven training script with logging and saved predictions | `scripts/train.py`, `configs/*.yaml` |
+| T-12 | Imbalance and augmentation study (class weights versus sampler; brightness and scale jitter), applied only after splitting; three seeds for the baseline | `notebooks/07_training_choices.ipynb` |
+| T-13 | Enhancement ablation: 3 variants x 3 seeds, grouped folds, confidence intervals, per-source results | `notebooks/08_enhancement_ablation.ipynb` |
+| T-14 | Sprint review | `docs/SPRINT2_SUMMARY.md` |
 
 ## Where each file goes
 
-| File | Ticket | Purpose |
-|---|---|---|
-| `src/fundus/preprocessing.py`, `tests/test_preprocessing.py` | T-02 | crop, pad, resize, contrast variants |
-| `scripts/cache_preprocessed.py` | T-03 | writes `data/processed/aptos_256px_basic/` |
-| `notebooks/03_preprocessing_design.ipynb` | T-02, T-03 | design and checks |
-| `notebooks/04_cnn_fundamentals.ipynb` | T-04 to T-06 | learning notebook |
-| `src/fundus/datasets/torch_dataset.py`, `tests/test_torch_dataset.py` | T-05 | PyTorch dataset over the manifest |
-| `src/fundus/models/cnn.py` | T-05 | SmallCNN and ResNet builder |
-| `src/fundus/training.py` | T-06 | loops, device, predictions |
-| `configs/baseline_resnet18.yaml` | T-07 | all baseline settings |
-| `notebooks/05_baseline_transfer_learning.ipynb` | T-07 | baseline |
-| `reports/aptos_baseline_resnet18_summary.json`, `reports/preds/*.csv` | T-07 | aggregate results, IDs and predictions only |
-| `notebooks/06_per_source_evaluation.ipynb` | T-08 | per-source analysis |
-| `docs/SPRINT1_SUMMARY.md` | T-09 | one-page summary for collaborator |
-| `docs/LOG.md` | every night | work log |
-| `docs/DECISIONS.md` | when a choice is made | decision record |
+| File | Ticket |
+|---|---|
+| `src/fundus/preprocessing.py`, `tests/test_preprocessing.py` | T-02 |
+| `scripts/cache_preprocessed.py` | T-03 |
+| `notebooks/03_preprocessing_design.ipynb` | T-02, T-03 |
+| `notebooks/04_cnn_fundamentals.ipynb` | T-04 to T-06 |
+| `src/fundus/datasets/torch_dataset.py`, `tests/test_torch_dataset.py` | T-05 |
+| `src/fundus/models/cnn.py` | T-05 |
+| `src/fundus/training.py` | T-06 |
+| `configs/baseline_resnet18.yaml`, `notebooks/05_baseline_transfer_learning.ipynb` | T-07 |
+| `reports/aptos_baseline_resnet18_summary.json`, `reports/preds/*.csv` | T-07 |
+| `notebooks/06_per_source_evaluation.ipynb` | T-08 |
+| `docs/SPRINT1_SUMMARY.md` | T-09 |
 
 ## Risks
 
 | Risk | Mitigation |
 |---|---|
+| Another interruption | Buffer days; overflow rule; keep each night's ticket self-contained |
 | Training is slow on MPS | Start at 128 or 256 px; subsets for debugging; measure images per second first |
-| Baseline is below the metadata reference | Treat as a pipeline bug; run the overfit-one-batch test again |
-| Baseline looks suspiciously good | Check per-source results and duplicates before believing it |
-| Schedule slips because the code is generated faster than understood | Write the DECISIONS entry yourself each time; if you cannot explain a function, rewrite it by hand |
-| Test partition used by accident | Dataset class refuses `test` unless `allow_test=True`; used once at the end of a sprint |
+| Baseline below the metadata reference | Treat as a pipeline bug; repeat the overfit test |
+| Baseline looks suspiciously good | Check per-source results and duplicates first |
+| Code gets ahead of understanding | Write each DECISIONS entry yourself; if you cannot explain a function, rewrite it by hand |
+| Test partition used by accident | Dataset class refuses `test` unless `allow_test=True`; the test split is used once, at the end of a phase |
+

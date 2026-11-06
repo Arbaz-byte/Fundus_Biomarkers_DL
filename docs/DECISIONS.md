@@ -13,3 +13,7 @@ One entry per decision. These are drafts based on the work so far: **rewrite the
 | D-007 | 2026-10-30 | Do not report a headline CNN score from the random split alone. Always add per-resolution results and a source-matched subset (2588 x 1958 and 2416 x 1736). | Resolution is a strong label proxy in this file. | Notebook 01, section 5; notebook 02, section 6 | Proposed |
 | D-008 | 2026-10-30 | Do not download the 18.5 GB 2015 + 2019 dataset before Phase 5. | Slows Phase 1; contents and licence unverified; needed only for the cross-dataset study. | docs/DATASETS.md | Proposed |
 | D-009 | [date] | Baseline preprocessing is the simplest option (crop to the retinal disc, pad to a square, resize, ImageNet normalisation); enhancement variants are compared later under a leak-free protocol. | Choosing a variant by looking at pictures or by one validation score invites self-deception. | Notebook 03 (to be written) | Proposed |
+
+| D-011 | 2026-11-05 | Baseline pipeline is crop to the retinal disc, pad to a square with black, resize with area interpolation. Never stretch. | [your own words: geometry is kept, resolution is spent on retina, aliasing avoided] | docs/PREPROCESSING.md | Accepted |
+
+| D-012 | 2026-11-05 | Local-average subtraction and CLAHE stay optional variants, not defaults. The first uses a mask-normalised blur. Pick one main variant later under the leak-free protocol, not by looking at pictures. | [your own words] | docs/PREPROCESSING.md | Accepted |

@@ -23,12 +23,10 @@ One entry per working day: what I did, what broke, what I learned, what is next.
 - [Record what the FOV correlations showed: do they remove the tie to width and border?]
 - Next: T-02, preprocessing design (docs/ROADMAP.md).
 
-<!-- Template for new days
-## YYYY-MM-DD
-- Ticket: T-xx
-- Done:
-- Broke / blocked:
-- Learned:
-- Numbers worth keeping:
-- Next:
--->
+## 2026-11-05
+- Ticket: T-02 (carried over from 6 Nov)
+- Done: reviewed every function in preprocessing.py; wrote docs/PREPROCESSING.md; found and fixed two problems (plain-blur border artifact in local-average subtraction, wrong colour conversion in CLAHE); added tests.
+- FOV mask review: [OK / BORDERLINE / FAIL counts, failing IDs, or "not done yet"]
+- Learned: padding re-creates a camera-dependent black bar, so cropping does not remove the source cue by itself.
+- Corrected two sentences in notebook 01 (square images still have about 21% dark corners).
+- Next: T-03 (6 Nov)
