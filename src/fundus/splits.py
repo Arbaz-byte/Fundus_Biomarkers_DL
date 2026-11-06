@@ -7,7 +7,7 @@ def patient_split(df: pd.DataFrame, val_fraction=0.15, test_fraction=0.15, seed=
     if "patient_id" not in df.columns:
         raise ValueError("patient_id column required")
     rng = np.random.default_rng(seed)
-    patients = df["patient_id"].unique()
+    patients = df["patient_id"].unique().to_numpy(copy=True)
     rng.shuffle(patients)
     n = len(patients)
     n_test = int(n * test_fraction)
