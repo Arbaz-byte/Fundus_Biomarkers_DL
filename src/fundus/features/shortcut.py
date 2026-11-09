@@ -1,9 +1,13 @@
-"""
+"""Build and evaluate metadata-only baselines for shortcut analysis.
 
-Helpers for the metadata-only shortcut test.
+A shortcut test asks whether image metadata (for example resolution, color
+statistics, or border size) can predict diabetic-retinopathy grades without
+examining retinal pathology. 
 
-A shortcut test asks: can the DR grade be predicted from image metadata alone (resolution, colour
-statistics, border size ...)? If yes, an image model could exploit the same cues instead of pathology.
+Strong metadata-only performance suggests that an image model might exploit 
+acquisition or framing cues instead of disease-related image content. 
+These helpers prepare metadata features, construct an evaluation pipeline, 
+and summarize its predictions.
 """
 from typing import Sequence
 
@@ -47,11 +51,29 @@ LOG_FEATURES = ("file_size_bytes", "blur_laplacian_variance", "fov_blur_laplacia
 
 
 class MetadataPreprocessor(BaseEstimator, TransformerMixin):
-    """
-    Log-transform skewed columns, then cap every column at fit-time quantiles.
-
-    Everything is learned in ``fit`` so it can be used inside a cross-validation pipeline without
-    leaking information from the scoring fold.
+    
+    """Log-transform and cap metadata features using training-fold statistics.
+    
+    Selected skewed columns are clipped to nonnegative values and transformed
+    with ``log1p``. Then every feature is clipped to lower and upper quantile
+    bounds learned during ``fit``. Learning these bounds only from the fit
+    data allows this transformer to be used in cross-validation without
+    leaking information from a scoring fold.
+    
+    Args:
+        feature_names: Names and order of the input columns. ``X`` is
+            interpreted as a table with these columns.
+        log_features: Feature names to log-transform before quantile capping.
+            Defaults to ``LOG_FEATURES``.
+        lower_quantile: Lower quantile used to fit each feature's clipping
+            bound. Defaults to 0.01.
+        upper_quantile: Upper quantile used to fit each feature's clipping
+            bound. Defaults to 0.99.
+            
+    Attributes:
+        lower_bounds_: Per-feature lower clipping bounds learned by ``fit``.
+        upper_bounds_: Per-feature upper clipping bounds learned by ``fit``.
+        n_features_in_: Number of input features observed during ``fit``.
     """
     
     def __init__(self, feature_names, log_features=LOG_FEATURES, lower_quantile=0.01, upper_quantile=0.99):
@@ -60,7 +82,6 @@ class MetadataPreprocessor(BaseEstimator, TransformerMixin):
         self.log_features = log_features
         self.lower_quantile = lower_quantile
         self.upper_quantile = upper_quantile
-        
         
     def _transform_frame(self, X):
         
@@ -73,8 +94,18 @@ class MetadataPreprocessor(BaseEstimator, TransformerMixin):
                 
         return frame
     
-    
     def fit(self, X, y=None):
+        """Learn per-feature clipping bounds from the supplied training data.
+        
+        Args:
+            X: Two-dimensional feature data with columns in
+                ``feature_names`` order.
+            y: Ignored; present to follow the scikit-learn transformer API.
+            
+        Returns:
+            This fitted transformer, with ``lower_bounds_``,
+            ``upper_bounds_``, and ``n_features_in_`` set.
+        """
         frame = self._transform_frame(X)
         
         # fit the quantiles to each column
@@ -85,18 +116,39 @@ class MetadataPreprocessor(BaseEstimator, TransformerMixin):
         
         return self
     
-    
     def transform(self, X):
+        """Apply log transforms and the clipping bounds learned by ``fit``.
         
+        Args:
+            X: Two-dimensional feature data with columns in
+                ``feature_names`` order.
+                
+        Returns:
+            NumPy array of transformed features, with the same row and column
+            counts as ``X``.
+        """
         frame = self._transform_frame(X)
         return frame.clip(self.lower_bounds_, self.upper_bounds_, axis="columns").to_numpy()
 
 
 def make_shortcut_pipeline(classifier, feature_names: Sequence[str]) -> Pipeline:
     
-    """
-    Log/cap -> median imputation -> standardisation -> classifier.
-    
+    """Create a scikit-learn pipeline for metadata-only classification.
+
+    Processing order is log transformation and quantile capping, median
+    imputation, standardization, and then classification. Keeping
+    preprocessing inside the pipeline ensures its learned statistics are
+    refit within each training fold rather than using held-out data.
+
+    Args:
+        classifier: Scikit-learn-compatible classifier implementing ``fit``
+            and ``predict``.
+        feature_names: Ordered names of the metadata columns supplied to the
+            pipeline.
+
+    Returns:
+        A scikit-learn ``Pipeline`` with steps named ``"cap_and_log"``,
+        ``"impute"``, ``"scale"``, and ``"classifier"``.
     """
     return Pipeline([
         ("cap_and_log", MetadataPreprocessor(feature_names=list(feature_names))),
@@ -107,11 +159,20 @@ def make_shortcut_pipeline(classifier, feature_names: Sequence[str]) -> Pipeline
 
 
 def shortcut_metrics(y_true, y_pred) -> dict:
-    
-    """
-    
-    QWK (primary, grades are ordinal) plus metrics that stay honest under class imbalance.
-    
+    """Compute classification metrics for the five diabetic-retinopathy grades.
+
+    Quadratic weighted kappa is the primary ordinal metric; macro F1 and
+    balanced accuracy help reveal performance across imbalanced classes,
+    while accuracy reports the overall fraction of correct predictions.
+
+    Args:
+        y_true: One-dimensional sequence of true grade labels.
+        y_pred: One-dimensional sequence of predicted grade labels aligned
+            with ``y_true``.
+
+    Returns:
+        Dictionary with ``"qwk"``, ``"macro_f1"``,
+        ``"balanced_accuracy"``, and ``"accuracy"`` metric values.
     """
     return {
         "qwk": cohen_kappa_score(y_true, y_pred, labels=GRADE_LABELS, weights="quadratic"),
@@ -122,13 +183,32 @@ def shortcut_metrics(y_true, y_pred) -> dict:
 
 
 def cross_validate_pipeline(pipeline, X: pd.DataFrame, y, cv_splits) -> pd.DataFrame:
-    
-    """Fit a fresh clone on each fold's fitting rows and score it on the held-out rows."""
+    """Evaluate a pipeline on precomputed train/score folds.
+
+    A fresh clone is fitted on each fold's training indices and evaluated on
+    that fold's held-out indices. This reports fold-wise performance while
+    allowing pipeline preprocessing to learn only from each fold's training
+    rows.
+
+    Args:
+        pipeline: Scikit-learn-compatible estimator or pipeline supporting
+            ``fit`` and ``predict``.
+        X: Feature DataFrame. Fold indices select rows by position using
+            ``iloc``.
+        y: One-dimensional sequence of labels aligned by row position with
+            ``X``.
+        cv_splits: Iterable of ``(fit_indices, score_indices)`` pairs, such
+            as the output of a scikit-learn cross-validation splitter.
+
+    Returns:
+        DataFrame with one row per fold, containing ``"fold"`` and all
+        metrics returned by ``shortcut_metrics``.
+    """
     rows = []
     y = np.asarray(y)
-    
+
     for fold_number, (fit_indices, score_indices) in enumerate(cv_splits, start=1):
-        
+
         model = clone(pipeline)
         model.fit(X.iloc[fit_indices], y[fit_indices])
         rows.append({"fold": fold_number, **shortcut_metrics(y[score_indices], model.predict(X.iloc[score_indices]))})
@@ -136,18 +216,39 @@ def cross_validate_pipeline(pipeline, X: pd.DataFrame, y, cv_splits) -> pd.DataF
 
 
 def resolution_label(frame: pd.DataFrame) -> pd.Series:
-    
-    """Exact resolution as a string, e.g. '2588x1958'."""
-    
+    """Encode each image's dimensions as a resolution string.
+
+    Args:
+        frame: DataFrame containing numeric ``"width"`` and ``"height"``
+            columns.
+
+    Returns:
+        String Series with the same index as ``frame``, formatted as
+        ``"<width>x<height>"`` (for example, ``"2588x1958"``).
+    """
     return frame["width"].astype(int).astype(str) + "x" + frame["height"].astype(int).astype(str)
 
 
 def resolution_lookup_predictions(train: pd.DataFrame, target: pd.DataFrame, label_column: str = "diagnosis"):
-    
-    """ predict , for each image, the most common training grade at the same resolution.
+    """Predict target labels using only each image's exact resolution.
 
-    A plain lookup table with no learning. If this scores well, resolution alone leaks the grade.
-    Resolutions never seen in training fall back to the overall most common training grade.
+    For each resolution present in the training data, the predicted label is
+    its most frequent training label. Unseen resolutions use the overall
+    training-label mode. This simple baseline tests whether acquisition
+    resolution alone is associated with the target, without fitting a model
+    or using target labels.
+
+    Args:
+        train: Training DataFrame containing ``"width"``, ``"height"``, and
+            ``label_column``.
+        target: DataFrame containing ``"width"`` and ``"height"`` for rows
+            to predict.
+        label_column: Name of the target-label column in ``train``.
+            Defaults to ``"diagnosis"``.
+
+    Returns:
+        NumPy integer array of predictions in the same row order as
+        ``target``.
     """
     train_resolution = resolution_label(train)
     
