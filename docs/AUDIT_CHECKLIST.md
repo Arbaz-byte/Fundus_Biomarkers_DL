@@ -1,6 +1,6 @@
 # Audit checklist
 
-Run the relevant section before you trust, report or commit a number. Tick the box in the ticket's LOG entry, not here.
+Run the relevant section before trust anything , report or commit a number. Tick the box in the ticket's LOG entry, not here.
 
 ## A. Data and split
 - [ ] The partition of every image comes from `configs/splits/aptos_v1.csv` only.
@@ -17,6 +17,8 @@ Run the relevant section before you trust, report or commit a number. Tick the b
 - [ ] One module per purpose (no duplicate files such as `preprocess.py` and `preprocessing.py`).
 - [ ] Same metric function everywhere (QWK, macro-F1, balanced accuracy).
 - [ ] Preprocessing is identical for train, validation and any later split.
+- [ ] Notebooks run from a clean kernel: no cell depends on code that was deleted or moved.
+- [ ] When the "largest" or "smallest" items are selected, check for ties (a top-6 of a tied value is an arbitrary subset); count the whole group.
 
 ## C. Results
 - [ ] A baseline sits next to every model (majority class, metadata-only, resolution lookup).
@@ -34,3 +36,4 @@ Run the relevant section before you trust, report or commit a number. Tick the b
 - [ ] `docs/LOG.md`, `docs/DECISIONS.md`, README status and results tables updated.
 - [ ] `reports/` contains aggregate files only.
 - [ ] `git status` clean except intended files; commit messages short and specific.
+

@@ -1,4 +1,4 @@
-# Roadmap and task board (re-baselined 2026-11-02)
+# Roadmap and task board (re-baselined 2026-11-02, updated 2026-11-07)
 
 Owner of every ticket: Arbaz. Budget: 2 hours per night. This board replaces the earlier version after a break (31 Oct to 2 Nov). Everything moves back by about one week; the last phase is shortened by one week instead of working longer hours.
 
@@ -24,7 +24,8 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 3. **Record:** `docs/LOG.md` every night. `docs/DECISIONS.md` only when you chose something. README status table when a phase changes. Write decisions in your own words.
 4. **Commit** with short imperative messages (`Add FOV mask QA overlay`).
 5. **Stop rules.** A diagnostic that has given its answer is finished. If a ticket takes more than 1.5 times its estimate, stop, log why, and ask for help. Run the simple table or plot first; build the sophisticated version only if the simple one is not enough. Reusable code goes to `src/fundus/` with a test; notebooks only call it and interpret.
-6. **Overflow rule.** If a ticket is not done at the end of its night, it continues the next night and every later ticket moves by one day. The two buffer days at the end of the sprint absorb up to two such slips.
+6. **Overflow rule.** If a ticket is not done at the end of its night, it continues the next night and every later ticket moves by one day. Both buffer days of Sprint 1 are already used, so a further slip is absorbed by the scope cuts listed above, not by longer nights.
+7. **Exploration is allowed and kept.** Trying settings and plotting them is real experimentation. Put it in an exploratory notebook (`NNb_<topic>`), mark it "exploratory, no decision", write down the parameters tried, time-box it (30 minutes), save only aggregate results, and make the choice later under a leak-free protocol. Never delete experiment code; a notebook must run from a clean kernel.
 
 **Hardware (MacBook, Apple Silicon, 16 GB).** PyTorch with the `mps` device; set `PYTORCH_ENABLE_MPS_FALLBACK=1`. Start at 256 px and batch size 32; `num_workers` 0 or 2; float32 first. Measure and log images per second.
 
@@ -93,35 +94,38 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** Functions and tests pass; QA grid reviewed; failure list written.
 
-### T-03 Notebook 03 complete and the 256 px cache (Fri 6 Nov, 2 h)
+### T-03 Cache, cost and the source-cue test (Sat 7 Nov, 2 h)
 
-**Goal.** One cached, identically preprocessed copy of all train and validation images, and a measured answer to "does preprocessing remove the source cue?"
+**Goal.** One cached, identically preprocessed copy of all train and validation images, and a measured answer to "how much of the source cue survives preprocessing?"
 
-**Tasks**
-1. Create `scripts/cache_preprocessed.py`: reads `configs/splits/aptos_v1.csv`, writes `data/processed/aptos_256px_basic/<id>.png` for **train and val only**. The test partition is not cached or opened.
-2. Finish notebook 03 (sections 4 to 8 below).
-3. Re-profile the cached 256 px images with `build_image_metadata(include_fov=True)` and repeat the shortcut CV from notebook 02 on `fov_*` colour and sharpness features.
+**Part 0, loose ends of T-02 (30 min).**
+1. `git status`: the screenshot of 7 Nov still showed `preprocessing.py` modified, `.gitignore` modified and notebook 03 untracked. Commit what is ready.
+2. Make notebook 03 reproducible: Restart kernel and Run All. A cell that depends on deleted code must be removed or moved to an exploratory notebook (see rule 7).
+3. Run the new section "How many images have a saturated mask?" and write observation, interpretation and decision in your own words.
+4. Record the decision in DECISIONS (D-013).
 
-**Notebook 03, remaining sections**
-4. Basic preprocessing before and after, one image per resolution; plus the reproducible resize test (stripe pattern with nearest, linear, cubic and area interpolation)
-5. Cost: seconds per image; disk size at 256, 384 and 512 px (measure on 50 images and extrapolate)
-6. Does preprocessing remove the source cue? Grouped-CV QWK before and after, same locked model; also the dark-pixel fraction after cropping and padding per resolution group (padding bars are a possible residual cue)
-7. Decision: baseline preprocessing = `preprocess_basic` at 256 px with ImageNet normalisation; contrast variants are compared in Sprint 2 under a leak-free protocol
-8. Summary
+**Part 1, the cache (25 min).**
+1. `python scripts/cache_preprocessed.py --size 256 --limit 20` (dry run), then without `--limit`. Train and validation images only.
+2. Read `_cache_manifest.csv`: seconds per image, images with no retina found, crop fractions.
+
+**Part 2, notebook `03c_cache_and_cue_test.ipynb` (50 min).** Sections: check the cache; cost at 256, 384 and 512 px; before/after images; padding bars and dark pixels per resolution; the source-cue test (grade from image statistics, and "which source?" from the same statistics, raw versus cached). Write the observation cells yourself.
+
+**Part 3, record (15 min).** LOG, DECISIONS (D-009, D-013), README status.
+
+**Optional, only if time remains (30 min, time-boxed).** Run `03b_contrast_exploration.ipynb` and write the observation prompts. If it does not fit tonight, it goes to Sprint 2 (T-12); do not extend the night.
 
 **Audit**
-- Cache holds exactly 2,963 images, matching the train and val IDs in the manifest; no test ID present.
-- Every cached file opens and has shape 256 x 256 x 3.
-- Run time per image is logged.
-- The before/after QWK uses the same CV folds and model as notebook 02.
+- Cache holds exactly the 2,963 development IDs; no test ID; 50 sampled files are 256 x 256 x 3 (checked in 03c).
+- The "source" test uses no label; the grade test uses the same locked model and folds as notebook 02.
+- Time per image and cache size are logged.
 
-**Expected result.** Cache builds in minutes and is small. Metadata QWK after preprocessing is lower than before but probably not zero. Whatever the number is, write it down.
+**Expected result.** Cache builds in minutes. Grade QWK from image statistics after preprocessing is lower than from the raw statistics but probably not zero; the source (resolution family) is likely still recognisable well above chance, because colour, noise and padding bars remain. Whatever the numbers are, write them down.
 
-**Update docs.** LOG (numbers); DECISIONS (D-009 to Accepted if you agree); `data/README.md` already describes the cache folder.
+**Update docs.** LOG; DECISIONS D-009 and D-013; README status row 1b.
 
-**Done when.** Cache exists and is git-ignored; section 6 contains a number; D-009 decided.
+**Done when.** Cache exists and is git-ignored; `aptos_preprocessing_cue_test.json` saved; observation cells written; decisions recorded.
 
-### T-04 Notebook 04, part A: CNN fundamentals by hand (Sat 7 Nov, 2 h)
+### T-04 Notebook 04, part A: CNN fundamentals by hand (Sun 8 Nov, 2 h)
 
 **Goal.** Understand shapes, parameter counts and receptive fields well enough to debug a CNN.
 
@@ -145,7 +149,7 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** You can explain, without looking, why a 3 x 3 convolution with 32 filters on a 3-channel input has 896 parameters.
 
-### T-05 Dataset class, model code and the overfit test (Sun 8 Nov, 2 h)
+### T-05 Dataset class, model code and the overfit test (Mon 9 Nov, 2 h)
 
 **Goal.** A PyTorch data pipeline that cannot touch the test partition, and a model that can learn.
 
@@ -171,7 +175,7 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** Tests pass; overfit test passes.
 
-### T-06 Training loop and a first small run (Mon 9 Nov, 2 h)
+### T-06 Training loop and a first small run (Tue 10 Nov, 2 h)
 
 **Goal.** A reusable training and evaluation loop whose metrics are comparable with notebook 02.
 
@@ -197,7 +201,7 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** Loop works; learning curves look sane; throughput logged.
 
-### T-07 Notebook 05: transfer-learning baseline (Tue 10 and Wed 11 Nov, 4 h)
+### T-07 Notebook 05: transfer-learning baseline (Wed 11 and Thu 12 Nov, 4 h)
 
 **Goal.** The first honest CNN number on the frozen split.
 
@@ -230,7 +234,7 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** Summary JSON and predictions file saved; numbers in text match.
 
-### T-08 Notebook 06: per-source evaluation (Thu 12 Nov, 2 h)
+### T-08 Notebook 06: per-source evaluation (Fri 13 Nov, 2 h)
 
 **Goal.** Find out how much of the CNN score survives when the source is controlled.
 
@@ -254,7 +258,7 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** Gap and intervals reported in the notebook and the README.
 
-### T-09 Sprint review (Fri 13 Nov, 2 h)
+### T-09 Sprint review (Sat 14 Nov, 2 h)
 
 **Tasks**
 1. Update the README status table and results table (random split, per source, matched subset, metadata baselines).
@@ -265,7 +269,9 @@ Scope cuts agreed to protect the end date (do them only if you fall behind, and 
 
 **Done when.** README numbers equal the JSON files; tag pushed.
 
-### Buffer (Sat 14 Nov; the other buffer day was used on 5 Nov)
+### Buffer (none left)
+
+Both buffer days were used (T-02 took 5 and 6 Nov). Sprint 1 now ends on Sat 14 Nov. Any further slip is absorbed only by the scope cuts listed at the top, never by longer nights. Meeting with the clinical collaborator (`docs/QUESTIONS_FOR_CLINICIAN.md`) should happen this week; do not wait for the sprint review.
 
 Overflow from earlier tickets; meeting with your clinical collaborator using `docs/QUESTIONS_FOR_CLINICIAN.md` and `docs/SPRINT1_SUMMARY.md`; repository hygiene. If nothing overflowed, start T-10 early.
 
@@ -301,7 +307,7 @@ Overflow from earlier tickets; meeting with your clinical collaborator using `do
 
 | Risk | Mitigation |
 |---|---|
-| Another interruption | Buffer days; overflow rule; keep each night's ticket self-contained |
+| Another interruption or slip | No buffer is left; use the scope cuts, not longer nights |
 | Training is slow on MPS | Start at 128 or 256 px; subsets for debugging; measure images per second first |
 | Baseline below the metadata reference | Treat as a pipeline bug; repeat the overfit test |
 | Baseline looks suspiciously good | Check per-source results and duplicates first |
