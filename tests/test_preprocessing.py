@@ -1,3 +1,11 @@
+"""Tests for the deterministic fundus preprocessing pipeline.
+
+These tests validate the crop, padding, resizing, baseline assembly, and
+contrast-enhancement functions against synthetic disc-on-black images, helping
+ensure that the preprocessing preserves retinal geometry and avoids border
+leakage or color distortion.
+"""
+
 import numpy as np
 import pytest
 
@@ -13,7 +21,12 @@ from fundus.preprocessing import (
 
 
 def _disc_image(width, height, centre_x, centre_y, radius, seed=0):
-    """Reddish textured disc on a black background."""
+    """Create a synthetic circular retinal disc on a black background.
+
+    The generated texture is intentionally red-toned and noisy so the tests can
+    validate crop/border detection and the preprocessing pipeline without
+    relying on real fundus photographs.
+    """
     rng = np.random.default_rng(seed)
     yy, xx = np.mgrid[0:height, 0:width]
     disc = (yy - centre_y) ** 2 + (xx - centre_x) ** 2 <= radius ** 2
@@ -27,12 +40,14 @@ def _disc_image(width, height, centre_x, centre_y, radius, seed=0):
 
 
 def _nonblack_box(image, threshold=10):
+    """Return the bounding box of the non-black content in an image."""
     mask = image.max(axis=2) > threshold
     rows, columns = np.flatnonzero(mask.any(axis=1)), np.flatnonzero(mask.any(axis=0))
     return rows[0], rows[-1] + 1, columns[0], columns[-1] + 1
 
 
 def test_crop_removes_the_black_border():
+    """Cropping should remove the surrounding black border while preserving the disc."""
     image = _disc_image(900, 600, 450, 300, 250)
     cropped = crop_to_fov(image)
     assert cropped.shape[0] == pytest.approx(500, abs=8)
@@ -40,6 +55,7 @@ def test_crop_removes_the_black_border():
 
 
 def test_bounding_box_slices_back_into_the_image():
+    """The bounding box should map back into original image coordinates correctly."""
     image = _disc_image(900, 600, 300, 300, 200)
     top, bottom, left, right = fov_bounding_box(image)
     assert 0 <= top < bottom <= 600 and 0 <= left < right <= 900
@@ -47,17 +63,20 @@ def test_bounding_box_slices_back_into_the_image():
 
 
 def test_crop_of_a_fully_bright_image_is_unchanged():
+    """A fully bright image should not be cropped because no dark border is detected."""
     image = np.full((256, 256, 3), 120, dtype=np.uint8)
     assert crop_to_fov(image).shape == image.shape
 
 
 def test_all_black_image_is_returned_unchanged():
+    """Black images should leave the FOV detection and crop as unchanged/no-op."""
     black = np.zeros((100, 120, 3), dtype=np.uint8)
     assert fov_bounding_box(black) is None
     assert crop_to_fov(black).shape == black.shape
 
 
 def test_pad_to_square_is_symmetric_black_and_keeps_content():
+    """Padding should center the content with black bars while leaving the image data intact."""
     image = np.full((100, 160, 3), 200, dtype=np.uint8)
     padded = pad_to_square(image)
     assert padded.shape == (160, 160, 3)
@@ -66,6 +85,7 @@ def test_pad_to_square_is_symmetric_black_and_keeps_content():
 
 
 def test_resize_square_shape_dtype_and_error_on_non_square():
+    """Resizing should produce the requested square output and reject non-square inputs."""
     image = np.full((300, 300, 3), 50, dtype=np.uint8)
     out = resize_square(image, 128)
     assert out.shape == (128, 128, 3) and out.dtype == np.uint8
@@ -74,6 +94,7 @@ def test_resize_square_shape_dtype_and_error_on_non_square():
 
 
 def test_preprocess_basic_centres_an_off_centre_disc():
+    """Baseline preprocessing should recenter the retinal content before resizing."""
     image = _disc_image(1200, 800, 300, 400, 280)      # retina far to the left of the frame
     out = preprocess_basic(image, size=256)
     assert out.shape == (256, 256, 3)
@@ -83,6 +104,7 @@ def test_preprocess_basic_centres_an_off_centre_disc():
 
 
 def test_preprocess_basic_does_not_stretch():
+    """Preprocessing should preserve aspect ratio rather than warping rectangular content."""
     image = np.zeros((400, 600, 3), dtype=np.uint8)
     image[150:250, 150:450] = 180                       # a 300 x 100 bright rectangle: aspect ratio 3
     out = preprocess_basic(image, size=150)
@@ -91,11 +113,13 @@ def test_preprocess_basic_does_not_stretch():
 
 
 def test_preprocess_is_deterministic():
+    """The preprocessing pipeline should be repeatable for the same input array."""
     image = _disc_image(700, 500, 350, 250, 220, seed=3)
     assert np.array_equal(preprocess_basic(image, 200), preprocess_basic(image, 200))
 
 
 def _flat_disc(size=256, radius=110, colour=(150, 80, 40)):
+    """Build a synthetic flat retinal disc used to test illumination normalization."""
     yy, xx = np.mgrid[0:size, 0:size]
     disc = (yy - size / 2) ** 2 + (xx - size / 2) ** 2 <= radius ** 2
     image = np.zeros((size, size, 3), dtype=np.uint8)
@@ -104,6 +128,7 @@ def _flat_disc(size=256, radius=110, colour=(150, 80, 40)):
 
 
 def test_local_average_subtraction_flat_retina_is_mid_grey_with_no_rim_and_black_outside():
+    """Local subtraction should flatten the disc and leave the background nearly black."""
     image, disc = _flat_disc()
     out = local_average_subtraction(image)
     yy, xx = np.mgrid[0:256, 0:256]
@@ -115,6 +140,7 @@ def test_local_average_subtraction_flat_retina_is_mid_grey_with_no_rim_and_black
 
 
 def test_local_average_subtraction_flattens_an_illumination_gradient():
+    """Normalization should reduce slow illumination gradients inside the disc."""
     image, disc = _flat_disc()
     gradient = np.linspace(0.4, 1.0, image.shape[1], dtype=np.float32)[None, :, None]
     shaded = (image * gradient).astype(np.uint8)
@@ -123,6 +149,7 @@ def test_local_average_subtraction_flattens_an_illumination_gradient():
 
 
 def test_clahe_keeps_shape_and_dtype_and_is_deterministic():
+    """CLAHE should preserve the image shape and output the same result on repeated calls."""
     image = _disc_image(256, 256, 128, 128, 120, seed=5)
     out = clahe_l_channel(image)
     assert out.shape == image.shape and out.dtype == np.uint8
@@ -130,11 +157,13 @@ def test_clahe_keeps_shape_and_dtype_and_is_deterministic():
 
 
 def test_functions_reject_non_rgb_input():
+    """The preprocessing helpers should reject arrays that are not 3-channel RGB images."""
     with pytest.raises(ValueError):
         pad_to_square(np.zeros((10, 10), dtype=np.uint8))
 
 
 def test_clahe_keeps_colour_roughly_unchanged_on_a_uniform_image():
+    """Colour-preserving CLAHE should not wash out the red/green/blue balance on a uniform field."""
     # Regression test: ending with the wrong colour conversion gives washed-out purple/pink output.
     uniform = np.full((64, 64, 3), (180, 90, 40), dtype=np.uint8)
     out = clahe_l_channel(uniform)
