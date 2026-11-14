@@ -1,25 +1,32 @@
 # data/
 
-This folder is git-ignored. Never commit images, and never place clinical or patient data in this repository (see `docs/DATA_POLICY.md`).
+Raw and processed data are local-only and git-ignored. Never commit dataset images or per-image outputs (see [`docs/DATA_POLICY.md`](../docs/DATA_POLICY.md)).
 
-## Layout used now
+## Active raw dataset
 
-```
-data/raw/APTOS-2019/               downloaded dataset (pre-split download)
-    train_images/train_images/*.png
-    val_images/val_images/*.png
-    test_images/test_images/*.png
-    train_1.csv  valid.csv  test.csv       original provider files (not used for our split)
-data/processed/
-    aptos_development_image_metadata.csv   written by notebook 01 (train + validation images only)
-    aptos_development_duplicate_groups.csv written by notebook 02 (near-duplicate groups, cache)
-    aptos_<size>px_<variant>/              preprocessed image cache (written by scripts/cache_preprocessed.py)
+```text
+data/raw/APTOS-2019-kaggle-competition/
+    train_images/
+    train.csv
+    test_images/
+    test.csv
 ```
 
-The partition of each image (train / val / test) comes only from `configs/splits/aptos_v1.csv`, not from the provider's folders. The sealed test partition is not opened by any notebook.
+This is the official APTOS 2019 Kaggle competition download, obtained 14 November 2026. The download has train and test partitions, with no supplied validation split. The training CSV is labeled; the test CSV contains IDs only. The local intake audit found matching CSV/image inventories and an imbalanced grade distribution with resolution differences across grades. Detailed counts and per-image metadata stay in ignored `data/processed/aptos_dataset_audit/`. See [`docs/DATASETS.md`](../docs/DATASETS.md) for provenance and terms, and [`docs/APTOS_PREPROCESSING.md`](../docs/APTOS_PREPROCESSING.md) for the active preprocessing audit.
+
+The official test partition stays sealed. Create the project's train/validation split from labeled training data only, and save its manifest locally; never mix the old third-party copy into the new analysis.
+
+## Previous source (superseded)
+
+`data/raw/APTOS-2019/` contains the older MariaHerreroT third-party copy with pre-split train, validation, and test folders. Its upload terms were not verified in this project. The local source comparison confirms its labeled image bytes and labels match the official competition training set; its `test` folder is not the Kaggle competition test set. This does not establish uploader provenance or licence. Keep the roots separate and use only the official root for new experiments.
+
+## Processed data
+
+`data/processed/` is for regenerable local-only artifacts, including the comparison report, audit metadata tables, duplicate groups, split manifests, preprocessed caches, QA sheets, and per-image predictions. Keep all APTOS-derived rows and uncleared aggregate outputs local.
 
 ## Rules
 
-- Everything in `data/processed/` can be regenerated; delete it freely.
-- Do not copy dataset images into `docs/`, `reports/` or notebook outputs unless the dataset licence allows it.
-- Record every new dataset in `docs/DATASETS.md` (source, licence, download date) before using it.
+- Both raw-data folders and processed outputs must remain ignored by Git.
+- `.gitkeep` files only preserve empty directory structure; no dataset files are allowed through ignore rules.
+- Do not copy APTOS images or image-bearing outputs into `docs/`, `reports/`, or notebooks.
+- Record every new dataset's source, terms, download date, contents, and limitations in [`docs/DATASETS.md`](../docs/DATASETS.md) before analysis.
