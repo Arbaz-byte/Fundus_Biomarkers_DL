@@ -1,6 +1,6 @@
 # data and outputs
-data/raw/
-data/processed/
+data/raw/**
+data/processed/**
 *.dcm
 *.zip
 *.tar
@@ -17,6 +17,8 @@ mlruns/
 __pycache__/
 *.pyc
 .venv/
+FDL-env/
+.cache*
 *.egg-info/
 .ipynb_checkpoints/
 .pytest_cache/
@@ -30,6 +32,13 @@ __pycache__/
 .env
 *.key
 
+# personal, local-only notes
+/personal/
+
 # keep folder structure
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+
+# APTOS IDs, labels, and per-image split are not cleared for redistribution
+configs/splits/aptos_v1.csv
+reports/preds/aptos_*.csv
