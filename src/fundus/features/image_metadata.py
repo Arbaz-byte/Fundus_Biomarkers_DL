@@ -10,8 +10,7 @@ Two groups of measurements are returned:
   retinal disc, on a copy resized to a fixed size, so they are not mechanically tied to the amount
   of black border or to the native pixel count.
 
-These are descriptive image proxies, not clinical quality scores or
-diagnoses.
+NOTE : These are descriptive image proxies, not clinical quality scores or diagnoses.
 """
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -26,10 +25,12 @@ from PIL import Image, UnidentifiedImageError
 ImagePath = Union[str, Path]
 
 FOV_REFERENCE_SIZE = 512  # longest side, in pixels, used for all fov_* measurements
+FOV_SATURATION_THRESHOLD = 0.99
 _NAN = float("nan")
 
 FOV_COLUMNS = [
     "fov_area_fraction",
+    "fov_saturated",
     "fov_bbox_width_fraction",
     "fov_bbox_height_fraction",
     "fov_center_offset_x",
@@ -98,9 +99,10 @@ def fov_metadata(rgb: np.ndarray, black_threshold: int = 10, reference_size: int
     Returns:
         Dictionary with the fields in ``FOV_COLUMNS``: retinal area and
         bounding-box fractions, normalized center offsets, mean brightness
-        and per-channel color means and standard deviations, and
-        Laplacian-variance sharpness. If no retinal field is detected, every
-        field is ``NaN``.
+        and per-channel color means and standard deviations, Laplacian-
+        variance sharpness, and a saturation flag set when the mask covers at
+        least ``FOV_SATURATION_THRESHOLD`` of the image. If no retinal field
+        is detected, numeric measurements are ``NaN`` and the flag is false.
     """
     height, width, _ = rgb.shape
     scale = reference_size / max(height, width)
@@ -113,9 +115,10 @@ def fov_metadata(rgb: np.ndarray, black_threshold: int = 10, reference_size: int
     
     mask = estimate_fov_mask(small, black_threshold)
     if not mask.any():
-        return {column: _NAN for column in FOV_COLUMNS}
+        return {column: (False if column == "fov_saturated" else _NAN) for column in FOV_COLUMNS}
     
     rows, columns = np.nonzero(mask)
+    area_fraction = float(mask.mean())
     bbox_height = rows.max() - rows.min() + 1
     bbox_width = columns.max() - columns.min() + 1
     pixels = small[mask].astype(np.float32)
@@ -128,7 +131,8 @@ def fov_metadata(rgb: np.ndarray, black_threshold: int = 10, reference_size: int
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
     
     return {
-        "fov_area_fraction": float(mask.mean()),
+        "fov_area_fraction": area_fraction,
+        "fov_saturated": area_fraction >= FOV_SATURATION_THRESHOLD,
         "fov_bbox_width_fraction": float(bbox_width / small_width),
         "fov_bbox_height_fraction": float(bbox_height / small_height),
         "fov_center_offset_x": float((columns.mean() - (small_width - 1) / 2) / small_width),
