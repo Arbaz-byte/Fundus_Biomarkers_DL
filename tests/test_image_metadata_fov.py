@@ -11,6 +11,7 @@ from PIL import Image
 
 from fundus.features.image_metadata import (
     FOV_COLUMNS,
+    FOV_SATURATION_THRESHOLD,
     build_image_metadata,
     estimate_fov_mask,
     image_metadata,
@@ -55,6 +56,7 @@ def test_fov_mask_matches_disc_area(tmp_path):
     true_fraction = _fake_fundus(tmp_path / "a.png", 900, 600)
     record = image_metadata(tmp_path / "a.png")
     assert record["fov_area_fraction"] == pytest.approx(true_fraction, abs=0.03)
+    assert record["fov_saturated"] is False
     assert record["fov_bbox_height_fraction"] > 0.8
 
 
@@ -82,7 +84,18 @@ def test_all_black_image_gives_nan_fov(tmp_path):
     """Black images should produce NaN FOV statistics because no retinal mask is found."""
     Image.fromarray(np.zeros((100, 120, 3), dtype=np.uint8)).save(tmp_path / "black.png")
     record = image_metadata(tmp_path / "black.png")
-    assert all(np.isnan(record[column]) for column in FOV_COLUMNS)
+    numeric_columns = [column for column in FOV_COLUMNS if column != "fov_saturated"]
+    assert all(np.isnan(record[column]) for column in numeric_columns)
+    assert record["fov_saturated"] is False
+
+
+def test_full_frame_mask_is_flagged_as_saturated(tmp_path):
+    """A mask covering the full frame should set the shared saturation flag."""
+    Image.fromarray(np.full((100, 120, 3), 100, dtype=np.uint8)).save(tmp_path / "full.png")
+    record = image_metadata(tmp_path / "full.png")
+    assert record["fov_area_fraction"] == 1.0
+    assert record["fov_area_fraction"] >= FOV_SATURATION_THRESHOLD
+    assert record["fov_saturated"] is True
 
 
 def test_build_skips_unreadable_images(tmp_path):
@@ -110,7 +123,13 @@ def test_parallel_build_matches_serial_and_keeps_order(tmp_path):
 
 
 def test_fov_reference_size_can_match_an_already_resized_image(tmp_path):
-    """Matching the native size should avoid unnecessary upsampling before FOV measurement."""
+    """Verify native-size FOV measurement avoids unnecessary image upsampling.
+
+    The test compares metadata measured at the image's original resolution with
+    the default reference size, which enlarges this small image. It checks that
+    area estimates remain close while sharpness is higher without interpolation,
+    and confirms the batch metadata API accepts the same reference-size option.
+    """
     _fake_fundus(tmp_path / "a.png", 256, 256)
     at_native = image_metadata(tmp_path / "a.png", fov_reference_size=256)
     upsampled = image_metadata(tmp_path / "a.png")            # default 512: the 256 px image is enlarged first
