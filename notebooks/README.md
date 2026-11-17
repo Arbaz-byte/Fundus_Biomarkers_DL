@@ -1,16 +1,17 @@
 # Notebooks
 
-Naming: `NN_topic.ipynb`, lowercase, one question per notebook. Reusable code goes to `src/fundus/`; notebooks only call it and interpret results.
+Naming: `NN_topic.ipynb`, lowercase, one question per notebook; the requested Day 00 entry is `00_Dataset_audit.ipynb`. Reusable code goes to `src/fundus/`; notebooks only call it and interpret results.
 
 ## Index
 
 | Notebook | Question | Status |
 |---|---|---|
-| 01_image_variation | How much do the images differ, and does it line up with the grade? | done |
-| 02_metadata_shortcut_test | How well does metadata alone predict the grade? | done |
-| 03_preprocessing_design | Does retina detection work on every resolution family? (mask QA, review sheet, saturated masks) | done (T-02) |
-| 03b_contrast_exploration | How do CLAHE settings and other variants change the look and label-free statistics? | exploratory, no decision |
-| 03c_cache_and_cue_test | Is the cache correct, what does it cost, and how much of the source cue survives preprocessing? | planned (T-03) |
+| [00_Dataset_audit](00_Dataset_audit.ipynb) | Do the old and official sources reconcile, and how do grades and native resolutions relate? | audit complete locally; outputs ignored; review before 01 |
+| 01_image_variation | How much do the images differ, and does it line up with the grade? | rerun required after 00 and a new official-source split |
+| 02_metadata_shortcut_test | How well does metadata alone predict the grade? | rerun required; previous outputs superseded |
+| 03_preprocessing_design | Does retina detection work across the new training images? | rerun required; prior QA superseded |
+| 03b_contrast_exploration | How do CLAHE settings and other variants change label-free statistics? | exploratory; rerun on new source before using |
+| 03c_cache_and_cue_test | Is the cache correct, what does it cost, and how much of the source cue survives preprocessing? | rerun required after new split and cache |
 | 04_cnn_fundamentals | Do I understand convolution, shapes and training well enough to debug a CNN? | planned (T-04 to T-06) |
 | 05_baseline_transfer_learning | How well does a fine-tuned ResNet do on the frozen split? | planned (T-07) |
 | 06_per_source_evaluation | How much of the score survives per source and on the source-matched subset? | planned (T-08) |
@@ -22,9 +23,9 @@ Naming: `NN_topic.ipynb`, lowercase, one question per notebook. Reusable code go
 1. Top cell: question, inputs, outputs, rules, run order.
 2. One import cell, one configuration cell. Paths relative to the project root; print project-relative paths only.
 3. Section order: what we do, code, observation, interpretation. Numbers in text must match the printed output.
-4. Use the sealed test partition for nothing.
-5. Save aggregate results to `reports/` (never images or patient-level rows).
-6. Before committing: Restart kernel and Run All; check text against output; make sure no personal paths (search for `/Users/`) and no dataset images remain in outputs unless the licence allows.
+4. Use official test images for nothing until final evaluation; derive validation only from labeled training data.
+5. Save only publication-cleared aggregate results to `reports/`. Keep APTOS-derived per-image tables and any uncleared aggregate outputs in git-ignored `data/processed/`.
+6. Before committing: Restart kernel and Run All; check text against output; make sure no personal paths (search for `/Users/`) and clear all dataset-image outputs. The Kaggle competition rules do not provide a small-sample exception for image examples. Use synthetic or separately licensed images for public demonstrations.
 
 ## Exploration policy
 
