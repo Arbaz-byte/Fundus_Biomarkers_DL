@@ -69,3 +69,11 @@ Next action on return (Tue 10 Nov): re-entry check, then [T-03 unfinished items 
 - Completed `notebooks/00_Dataset_audit.ipynb` as the aggregate-only audit walkthrough. It loads existing audit outputs when available, supports an explicit `FORCE_REBUILD` refresh, and presents aggregate tables and plots without saving image examples or per-image output in the notebook.
 - The local audit found no CSV/image inventory, ID, label, byte-hash, or measured-metadata mismatches. It confirms class imbalance and a resolution-grade association that I will treat as a potential shortcut, not a clinical conclusion. Detailed tables remain local under git-ignored `data/processed/aptos_dataset_audit/`.
 - Python syntax checks and `git diff --check` passed for the documentation updates. Pytest was not rerun as part of this docstring pass. Before committing, clear local notebook outputs and keep audit tables and per-image data out of Git.
+
+## 2026-11-19 — Official APTOS split plan and implementation
+
+- Decided to partition the labeled official training set into approximate 70% train, 15% validation, and 15% local test. Validation will guide model/preprocessing choices; the local test is reserved for final evaluation, and the unlabeled competition test set remains sealed.
+- Updated `docs/DECISIONS.md` and `docs/APTOS_PREPROCESSING.md` with the split method, duplicate-group constraint, local-only manifest policy, and limitations: no patient IDs, approximate proportions, imbalanced/rare grades, and no guarantee of zero bias.
+- Reworked `scripts/create_aptos_split.py` for the official `train.csv` and `train_images/`, with diagnosis-stratified group folds, duplicate grouping, inventory checks, and conflict reporting. Added `tests/test_create_aptos_split.py` for reproducibility, split proportions, duplicate isolation, retained conflicting labels, overwrite protection, and ensuring official test images are not read.
+- Added fuller descriptions and type annotations to the duplicate-group and split tests/functions.
+- Syntax checks and `git diff --check` passed. The focused pytest run could not start because `pytest` is not installed in the active Python environment. Next: run the tests in the project environment, inspect the realized split and class/group counts, and review the local manifest before using it.
