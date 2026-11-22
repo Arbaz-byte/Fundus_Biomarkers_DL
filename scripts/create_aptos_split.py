@@ -74,7 +74,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/processed/aptos_official_split_v1.csv"),
+        default=Path("configs/splits/aptos_official_split_v1.csv"),
         help="Local split manifest path; keep this per-image file out of Git.",
     )
     parser.add_argument("--seed", type=int, default=42)
