@@ -77,3 +77,9 @@ Next action on return (Tue 10 Nov): re-entry check, then [T-03 unfinished items 
 - Reworked `scripts/create_aptos_split.py` for the official `train.csv` and `train_images/`, with diagnosis-stratified group folds, duplicate grouping, inventory checks, and conflict reporting. Added `tests/test_create_aptos_split.py` for reproducibility, split proportions, duplicate isolation, retained conflicting labels, overwrite protection, and ensuring official test images are not read.
 - Added fuller descriptions and type annotations to the duplicate-group and split tests/functions.
 - Syntax checks and `git diff --check` passed. The focused pytest run could not start because `pytest` is not installed in the active Python environment. Next: run the tests in the project environment, inspect the realized split and class/group counts, and review the local manifest before using it.
+
+## 2026-11-23 — APTOS split dataset documentation
+
+- Added complete module and function docstrings to `scripts/aptos_split_dataset.py`, covering manifest loading, official-label validation, image lookup, copy/link placement, dataset building, output verification, summaries, and CLI arguments.
+- Updated `tests/test_aptos_split_dataset.py` with a corrected module description and run command, a documented temporary-project fixture helper, and concise docstrings for the happy-path, failure, overwrite, symlink, leakage, and real-data checks.
+- Python syntax compilation passed for both files. The focused pytest run could not start because `pytest` is not installed in the available Python environment. Next: run the APTOS split test suite in the project environment.
